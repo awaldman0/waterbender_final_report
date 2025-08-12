@@ -42,7 +42,7 @@
 	-->
 
 			<h2>Abstract</h2>
-			<p>This project explores real-time particle-based fluid simulation and rendering in 3D. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. From there, </p>
+			<p>This project explores real-time particle-based fluid simulation and rendering in 3D based in OpenGL. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. Next, we transitioned from displaying particle data as distinct points to combining them into a contiguous mesh using the k-Nearest Neighbor method. To enhance the realism of our fluid, we used area weighted vertex normals from the mesh in combination with a bloom shader and multiple passes of a gaussian blur shader (all written in GLSL), finally compositing the layers together in the framebuffer.</p>
 			<h2>Technical Approach</h2>
 			<h3>Particle System</h3>
 			<h3>Meshing and Shaders</h3>
