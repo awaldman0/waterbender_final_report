@@ -50,6 +50,7 @@
 			<p>After checking for boundary collisions and applying the force of gravity, the next step in updating each particle is to check for particle-particle collisions. If the center of another particle is found to be less than two radii away from the center of the current particle, there is a collison. Subsequently, we calculate the impulse during the collision for each particle add the impulse to their velocities, thereby conserving momentum, kinetic energy, and angular momentum [2]. For simplicity, the masses of every particle are equal to 1. While this method doesn't model our fluid as accurately as a Navier-Stokes solver would, it allows us to fairly cheaply approximate fluid properties like incompressibility and generally constant density/pressure.</p>
 
 			<p>Lastly, we factor in some repulsive forces between nearby particles by negating the Universal Law of Gravitation</p>
+			<img src="particle_system.gif"/>
 			<h3>Meshing and Shaders</h3>
 			<h3>Problems Encountered</h3>
 			<ol>
