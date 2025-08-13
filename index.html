@@ -51,19 +51,30 @@
 			</div>
 			<h2>Technical Approach</h2>
 			<h3>Particle System</h3>
+			<p>In our program, each particle is reprsented with a center coordinate, radius, and velocity. Each frame, we loop though every particle in the program and call the particle class's member function <code>updatePosition()</code>, which first performs a bounds check between the particle and the outer box. If the center of the particle is within one radius of one or more of the walls, we multiply the particle's velocity by a negative multiplier (-0.6 in our case) along each of the axes for which it is out of bounds. This way, collisions/bounces against the walls of the container look natural. Next, we increment the particle's velocity by the gravity vector.</p>
+			<p>Note that in our implementation, there is a global rotation matrix whose values can be altered through user input via the arrow keys or the mouse. Every piece of geometry is fed through a vertex shader that multiplies vertex coordinates by our rotation matrix. Despite that, the force of gravity is always downwards from the perspective of the user regarless of the rotations being applied in the vertex shader. In order to do so, the gravity vector applied to each particle in <code>updatePosition()</code> is <b>actually</b> the original gravity vector multiplied by the inverse of the rotation matrix. This way, particle movement as a result of this vector translates to downward movement after was apply the vertex shader.</p>
+			<p>After checking for boundary collisions and applying the force of gravity, the next step in updating each particle is to check for particle-particle collisions. If the center of another particle is found to be less than two radii away from the center of the current particle, there is a collison. Subsequently, we calculate the impulse during the collision for each particle add the impulse to their velocities, thereby conserving momentum, kinetic energy, and angular momentum [2]. For simplicity, the masses of every particle are equal to 1. Although this method doesn't model our fluid as accurately as a Navier-Stokes solver would, it allows us to fairly cheaply approximate fluid properties like incompressibility and constant density/pressure. Lastly, we factor in a small, arbitrary repulsive force between nearby particles. While not the most physically accurate representation of fluid dynamics, it serves the simulation by 1) helping the particles "fall apart" after the program spawns them in as a block and 2) Contributing to the bounciness/waviness of our fluid, allowing for more convincing ripples.</p>
+			<div style="text-align: center;">
+				<img src="particle_sys.gif" width="400px" />
+				<figcaption>Particle interactions in Waterbender</figcaption>
+			</div>
 			<h3>Meshing and Shaders</h3>
-						After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
+			After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
 			The basic steps of mesh generation are listed below in order:
 
-				<ul>
-				<li>1] Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
-				<li>2] k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
-				<li>3] Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
-				<li>4] Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
-				<li>5] Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
-				<li>6] Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
-				<li>7] Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
-				</ul> 
+			<ol>
+				<li> Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
+				<li> k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
+				<li> Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
+				<li> Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
+				<li> Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
+				<li> Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
+				<li> Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
+			</ol>
+			<div style="text-align: center;">
+				<img src="mesh.gif" width="400px" />
+				<figcaption>Result of kNN meshing algorithm</figcaption>
+			</div>
 
 			<h3>Problems Encountered</h3>
 			<ol>
@@ -104,6 +115,8 @@
 				<li><a href="https://www.youtube.com/watch?v=rSKMYc1CQHE">Coding Adventure: Simulating Fluids</a></li>
 				<li><a href="https://en.wikipedia.org/wiki/Elastic_collision">Elastic Collision</a></li>
 				<li><a href="https://cs184.eecs.berkeley.edu/sp25/resources/cgl-vector-docs/">CGL Vectors Library</a></li>
+				<li><a href="https://learnopengl.com/Model-Loading/Mesh">Mesh Construction</a></li>
+				<li><a href="https://www.khronos.org/opengl/wiki/Tutorial2:_VAOs,_VBOs,_Vertex_and_Fragment_Shaders_(C_/_SDL)">VAO, VBO, Vertex and Fragment Shaders</a></li>
 			</ol>
 			<h2>Contributions</h2>
 			<p><b>Mark MacDermott:</b> Implemented mesh generation and shading from particle data provided by physics simulation</p>
