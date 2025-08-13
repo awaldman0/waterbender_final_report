@@ -9,7 +9,7 @@
 
 			.container {
 				margin: 0 auto;
-				padding: 35px 10%;
+				padding: 60px 10%;
 			}
 
 			figure {
@@ -37,462 +37,65 @@
 			<br />
 			Link to GitHub repo: <a href="https://github.com/awaldman0/waterbender">github.com/awaldman0/waterbender</a>
 			<br>
+			<a href="https://docs.google.com/presentation/d/1Egt6PA-J0QTN7RdHVlVrm-zUfxWP1CrhYYB1NdwbgcY/edit?slide=id.g374755c154a_0_119#slide=id.g374755c154a_0_119">Link to slides</a>
+			<br />
 			<!--
 	We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
 	-->
 
 			<h2>Abstract</h2>
-			<p>This project explores real-time particle-based fluid simulation and rendering in 3D. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. From there, </p>
+			<p>This project explores real-time particle-based fluid simulation and rendering in 3D based in OpenGL. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. Next, we transitioned from displaying particle data as distinct points to combining them into a contiguous mesh using the k-Nearest Neighbor method. To enhance the realism of our fluid, we used area weighted vertex normals from the mesh in combination with a bloom shader and multiple passes of a gaussian blur shader (all written in GLSL), finally compositing the layers together in the framebuffer. The final version of our program can be rendered in two modes; the first displays our fluid using the fully shaded mesh, while the second shows the all of the particles that underpin the simulation. The user can switch between display modes by pressing 'P'. Waterbender has a number of other ways for the user interact with the simultion, including being able to use their mouse and/or arrow keys to rotate the cube over the x and y axes while 'R' can be pressed to reset the simulation's orientation. The user can scroll up and down to add or subtract particles from the simulation, respectively. Lastly, the user can dynamically resize the container by pressing Q, W, and E to expand along each axis and A, S, and D to contract.</p>
+			<p><b>If you are viewing this as a PDF, please visit the website to see animated GIFs.</b></p>
+			<div style="text-align: center;">
+				<img src="intro.gif" width="600px" />
+			</div>
 			<h2>Technical Approach</h2>
 			<h3>Particle System</h3>
-			<h3>Meshing</h3>
-			After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
-			The basic steps of mesh generation are listed below in order:
-
-				<ul>
-				<li>1] Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
-				<li>2] k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
-				<li>3] Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
-				<li>4] Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
-				<li>5] Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
-				<li>6] Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
-				<li>7] Send to GPU: The vertex buffer object is resized only when necessary. Most frames use glBufferSubData to overwrite existing storage, reducing allocation overhead and avoiding driver-side churn.</li>
-				<li>8] Draw: With the mesh mode active, the vertex array is drawn as triangles with backface culling disabled, depth testing enabled, and alpha blending for translucency. In particle mode, raw particle positions are streamed to a separate buffer and drawn as GL_POINTS for diagnostic visualization.</li>
-				</ul> 
-			To this end we also declare the following datastructures:
-			<div class="card">
-			<div class="name">vector&lt;glm::vec3&gt; <b>fluidPos</b></div>
-			<div class="lbl">Lagged (smoothed) particle positions</div>
-			<ul>
-			<li>Updated each frame by an exponential moving average toward real particle centers.</li>
-			<li>Purpose: reduce jitter; provide stable anchor points for meshing.</li>
-			<li>Source for triangle building and normal computation.</li>
-			<li>Update rule: <code>fluidPos[i] = (1-POS_ALPHA)*fluidPos[i] + POS_ALPHA*p_actual[i]</code>.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">vector&lt;glm::ivec3&gt; <b>fluidTris</b></div>
-			<div class="lbl">Triangle connectivity (indices into <code>fluidPos</code>)</div>
-			<ul>
-			<li>Built sparsely from k-nearest neighbors within <code>max_edge_dist</code>.</li>
-			<li>Each element is <code>(a,b,c)</code> with <code>a≤b≤c</code> to ensure uniqueness.</li>
-			<li>Represents the current mesh surface to render.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">vector&lt;glm::vec3&gt; <b>prevNorm</b></div>
-			<div class="lbl">Previous-frame vertex normals (per <code>fluidPos</code>)</div>
-			<ul>
-			<li>Used for temporal EMA of normals to suppress shading flicker.</li>
-			<li>Also used to keep hemisphere consistency (flip if facing away from reference light).</li>
-			<li>Persisted across frames; same length as <code>fluidPos</code>.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">vector&lt;glm::vec3&gt; <b>Vn</b> (transient)</div>
-			<div class="lbl">Current per-vertex normals (area-weighted)</div>
-			<ul>
-			<li>Accumulated from face vectors <code>(Pb-Pa)×(Pc-Pa)</code> over all incident triangles.</li>
-			<li>Normalized per vertex; then blended with <code>prevNorm</code> for stability.</li>
-			<li>Lifetime: rebuilt each frame after topology/positions update.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">vector&lt;float&gt; <b>interleaved</b> (transient)</div>
-			<div class="lbl">GPU-ready vertex stream: positions + normals</div>
-			<ul>
-			<li>For each triangle vertex: <code>[Px, Py, Pz, Nx, Ny, Nz]</code>.</li>
-			<li>Matches shader layout: location 0 = position, location 1 = normal.</li>
-			<li>Drives <code>glDrawArrays(GL_TRIANGLES, 0, trisVertexCount)</code>.</li>
-			<li>Rebuilt every frame after normals are finalized.</li>
-			</ul>
-			We also implement the following functions.
-
-			<div class="card">
-			<div class="name">syncFluidArrays()</div>
-			<div class="lbl">Synchronize mesh position and normal arrays with particle count</div>
-			<ul>
-			<li>Checks if <code>fluidPos.size()</code> matches <code>particles.size()</code>.</li>
-			<li>If not, rebuilds <code>fluidPos</code> from current particle centers.</li>
-			<li>Resets <code>prevNorm</code> to zero vectors and clears <code>fluidTris</code>.</li>
-			<li>Forces an immediate topology rebuild by setting <code>topoTimer = TOPOLOGY_DT</code>.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">rebuildTopologyFromPositions(P, k, maxDist, outTris)</div>
-			<div class="lbl">Generate triangle connectivity from smoothed particle positions</div>
-			<ul>
-			<li>For each point in <code>P</code>, finds up to <code>k</code> nearest neighbors within <code>maxDist</code>.</li>
-			<li>Forms triangles from neighbor pairs if all three points are within range.</li>
-			<li>Encodes sorted vertex indices into a 64-bit key to avoid duplicate triangles.</li>
-			<li>Writes resulting unique triangles into <code>outTris</code>.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">accumulateVertexNormals(P, T, outVn)</div>
-			<div class="lbl">Compute area-weighted per-vertex normals</div>
-			<ul>
-			<li>Initializes all normals to zero.</li>
-			<li>For each triangle in <code>T</code>, computes face normal via cross product of two edges.</li>
-			<li>Adds the face normal to each of its three vertices’ normal accumulators.</li>
-			<li>Normalizes each vertex normal; defaults to +Z if degenerate.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">updateFluidMesh(dt)</div>
-			<div class="lbl">Main mesh update: smoothing, topology, normals, GPU upload</div>
-			<ul>
-			<li>Calls <code>syncFluidArrays()</code> to match particle count.</li>
-			<li>Updates <code>fluidPos</code> toward actual particle positions (EMA).</li>
-			<li>If <code>topoTimer</code> exceeds <code>TOPOLOGY_DT</code>, calls <code>rebuildTopologyFromPositions</code>.</li>
-			<li>Calls <code>accumulateVertexNormals</code> to get current normals.</li>
-			<li>Blends each normal with its previous-frame value (normal EMA), flipping if facing away from reference light.</li>
-			<li>Builds <code>interleaved</code> [position|normal] array from triangles.</li>
-			<li>Uploads vertex data to <code>trisVBO</code> using <code>glBufferSubData</code> (resizes with <code>glBufferData</code> if needed).</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">updatePointsVBO()</div>
-			<div class="lbl">Upload raw particle positions for point rendering</div>
-			<ul>
-			<li>Builds a temporary array of particle centers.</li>
-			<li>Uploads to <code>pointsVBO</code> with the same grow-then-overwrite pattern as mesh vertices.</li>
-			<li>Used for debug mode when <code>gShowParticles == true</code>.</li>
-			</ul>
-			</div>
-
-			<div class="card">
-			<div class="name">initializeParticles()</div>
-			<div class="lbl">Fill simulation with initial particles</div>
-			<ul>
-			<li>Deletes any existing particles and clears <code>particles</code>.</li>
-			<li>Generates particle positions in a cubic grid until <code>num_particles</code> reached.</li>
-			<li>Calls <code>syncFluidArrays()</code> to seed <code>fluidPos</code> from these new positions.</li>
-			</ul>
-			</div>
-
-			<h4>Step 1: Smooth Positions</h4>
-			<p>The smoothed position <code>p<sub>i</sub>(t)</code> is updated from the previous smoothed position and the current actual position using an exponential moving average:</p>
-
-			<pre>
-			pᵢ(t) = (1 - α) · pᵢ(t-1) + α · pᵢ_actual(t)
-			</pre>
-
-			<ul>
-			<li><code>pᵢ_actual(t)</code>: true simulation position at frame <em>t</em></li>
-			<li><code>pᵢ(t)</code>: smoothed position for display/meshing</li>
-			<li><code>α</code> (<em>POS_ALPHA</em>): smoothing factor, 0 &lt; α ≤ 1</li>
-			</ul>
-
-			<p>This formula blends most of the old smoothed value with a fraction of the new value. Over time, it creates a weighted average of many past positions, with older values contributing less due to the repeated <code>(1 - α)</code> factor.</p>
-
-			<ul>
-			<li><strong>Large α</strong>: reacts quickly, less smoothing.</li>
-			<li><strong>Small α</strong>: reacts slowly, more smoothing.</li>
-			</ul>
-
-			<p>In the fluid mesh, this low-pass filter removes high-frequency jitter from particle motion, keeping the rendered surface stable between frames.</p>
-
-			<h4>Step 2: k Nearest Neighbors</h4>
-			Given the smoothed positions from Step 1 (fluidPos), the goal is to determine, for each vertex i, which other vertices are “close” so they can be considered for triangle formation.
-
-			<p>From the smoothed positions (<code>fluidPos</code>), we build a list of nearby vertices for each particle. This neighbor list is later used to form triangles.</p>
-
-			<ol>
-			<li><strong>Measure distances</strong><br>
-				For each vertex <code>P<sub>i</sub></code>, compute squared distances to every other vertex j:
-			<pre>d²(P<sub>i</sub>, P<sub>j</sub>) = (x<sub>j</sub> - x<sub>i</sub>)² + (y<sub>j</sub> - y<sub>i</sub>)² + (z<sub>j</sub> - z<sub>i</sub>)²</pre>
-			</li>
-			<li><strong>Apply distance cutoff</strong><br>
-				Ignore any vertex where <code>d² &gt; (max_edge_dist)²</code>. This limits connections to nearby points only.
-			</li>
-			<li><strong>Select closest k</strong><br>
-				From the remaining vertices, keep only the <em>k</em> smallest distances.  
-				The code uses <code>std::nth_element</code> to partially sort the list without the cost of full sorting.
-			</li>
-			<li><strong>Store neighbor list</strong><br>
-				Save these indices in <code>nbr[i]</code> for vertex <em>i</em>. This list will be used to check possible triangle connections in the next step.
-			</li>
-			</ol>
-
-			<p>This step ensures each vertex only connects to nearby vertices, which:</p>
-			<ul>
-			<li>Reduces mesh density to a manageable level.</li>
-			<li>Improves stability by avoiding long, thin triangles.</li>
-			<li>Preserves local surface structure of the particle cloud.</li>
-			</ul>
-
-			<h4>Step 3: Triangle Formation</h4>
-
-			<p>Using each vertex’s neighbor list <code>nbr[i]</code>, emit triangles that connect locally close triples.</p>
-
-			<p>Create a set of unique triangles <code>(a, b, c)</code> indexed into <code>fluidPos</code> such that all three edges are short. This yields a sparse, coherent surface.</p>
-
-			<ul>
-			<li><code>fluidPos</code>: smoothed positions <code>P[i] ∈ ℝ³</code></li>
-			<li><code>nbr[i]</code>: up to <code>k_neighbors</code> neighbors of vertex <code>i</code>, prefiltered by <code>max_edge_dist</code></li>
-			<li><code>max_edge_dist</code>: edge-length cutoff</li>
-			</ul>
-
-			<ol>
-			<li><strong>Fix a center vertex</strong><br>
-				For each <code>i</code>, get its neighbor list <code>L = nbr[i]</code>.
-			</li>
-			<li><strong>Enumerate neighbor pairs</strong><br>
-				For all unordered pairs <code>(j, k)</code> with <code>j&lt;k</code> in <code>L</code>, test whether the triangle is locally tight:
-				<pre>‖P[j] - P[k]‖ ≤ max_edge_dist</pre>
-				This ensures the third edge is short as well (the other two were enforced when building <code>nbr</code>).
-			</li>
-			<li><strong>Canonicalize indices</strong><br>
-				Sort the triplet so <code>a ≤ b ≤ c</code> for <code>(a, b, c) = sort(i, j, k)</code>. This gives a unique representation for the same geometric triangle regardless of which vertex emitted it.
-			</li>
-			<li><strong>Deduplicate</strong><br>
-				Encode <code>(a, b, c)</code> into a 64-bit key and insert into a hash set. Emit the triangle only if the insert is new.
-				<pre>key = (uint64_t)a &lt;&lt; 42 | (uint64_t)b &lt;&lt; 21 | (uint64_t)c</pre>
-				(Assumes ≤ 2²¹−1 vertices.)
-			</li>
-			<li><strong>Store</strong><br>
-				Append <code>(a, b, c)</code> to <code>fluidTris</code> when accepted.
-			</li>
-			</ol>
-
-			<pre>
-			// for each vertex i
-			L = nbr[i]
-			for u in 0..|L|-1:
-			j = L[u]
-			for v in u+1..|L|-1:
-				k = L[v]
-				if norm(P[j] - P[k]) <= max_edge_dist:
-				(a,b,c) = sort(i, j, k)  // a ≤ b ≤ c
-				key = encode(a,b,c)
-				if key not in triSet:
-					triSet.insert(key)
-					fluidTris.push_back( (a,b,c) )
-			</pre>
-
-			<ul>
-			<li><strong>Locality</strong>: Only neighbors within a radius are considered, so edges remain short and the mesh adheres to the particle cloud.</li>
-			<li><strong>Stability</strong>: Enforcing the third edge cutoff avoids long, thin sliver triangles.</li>
-			<li><strong>Uniqueness</strong>: Sorting + hashing guarantees no duplicate triangles from overlapping neighbor lists.</li>
-			</ul>
-
-			<p>Per vertex, neighbor-pair checks are <code>O(k²)</code>. Over all vertices, <code>O(N·k²)</code> after the neighbor search.</p>
-
-			<h4>Step 4: Compute Normals</h4>
-			<p>Goal: compute a smooth normal for each vertex by averaging the directions of adjacent triangle faces, weighted by triangle area.</p>
-
-			<ul>
-			<li><code>P[i]</code>: vertex positions from <code>fluidPos</code></li>
-			<li><code>T</code>: triangle index list; each triangle is <code>(a,b,c)</code></li>
-			</ul>
-
-			<p>For each triangle, build two edge vectors and take their cross product:</p>
-			<pre>
-			e1 = P[b] - P[a]
-			e2 = P[c] - P[a]
-			n_face = cross(e1, e2)   // direction = face normal, magnitude ∝ 2 × area
-			</pre>
-
-			<p>Add the face vector to all three incident vertices. Faces with larger area contribute more due to the cross-product magnitude.</p>
-			<pre>
-			N[a] += n_face
-			N[b] += n_face
-			N[c] += n_face
-			</pre>
-
-			<p>After processing all triangles, normalize each accumulated vector. If its length is near zero (degenerate geometry), fall back to a default direction.</p>
-			<pre>
-			for each vertex i:
-			if length(N[i]) > ε:
-				N[i] = normalize(N[i])
-			else:
-				N[i] = (0, 0, 1)   // fallback
-			</pre>
-
-			<ul>
-			<li>Larger faces should influence the vertex normal more than tiny slivers.</li>
-			<li>Cross product length is proportional to face area, so summing face vectors gives the correct weighting automatically.</li>
-			<li>Normalizing at the end produces a unit vector suitable for lighting.</li>
-			</ul>
-
-			<h4>Step 5: Smooth Normals</h4>
-
-			<p>Goal: stabilize lighting across frames by filtering per-vertex normals over time and enforcing a consistent facing direction.</p>
-
-			<ul>
-			<li><code>Vn[i]</code>: current per-vertex normal from area-weighted accumulation</li>
-			<li><code>prevNorm[i]</code>: previous frame’s filtered normal (same length as <code>fluidPos</code>)</li>
-			<li><code>NORM_ALPHA = α</code>: temporal smoothing factor, <code>0 &lt; α ≤ 1</code></li>
-			<li><code>L</code>: reference direction (e.g., light dir) to keep normals in the same hemisphere</li>
-			</ul>
-
-			<p>Exponential moving average (EMA): Blend the new normal with the previous filtered normal, then renormalize:</p>
-			<pre>
-			if ||prevNorm[i]|| ≈ 0:
-			ema = normalize(Vn[i])      // first valid frame
-			else:
-			ema = normalize( (1 - α) * prevNorm[i] + α * Vn[i] )
-			</pre>
-
-			<p>Flip the result if it faces away from the reference direction:</p>
-			<pre>
-			if dot(ema, L) < 0:
-			ema = -ema
-			</pre>
-
-			<p>Write back for next frame and for rendering this frame:</p>
-			<pre>
-			prevNorm[i] = ema
-			Vn[i]       = ema
-			</pre>
-
-			<pre>
-			// inputs: Vn (vec3[]), prevNorm (vec3[]), alpha, L
-			for i in 0..N-1:
-			cur = Vn[i]
-			if length(prevNorm[i]) < 1e-10:
-				ema = normalize(cur)
-			else:
-				ema = normalize( (1 - alpha) * prevNorm[i] + alpha * cur )
-
-			if dot(ema, L) < 0.0:
-				ema = -ema
-
-			prevNorm[i] = ema
-			Vn[i]       = ema
-			</pre>
-
-			<ul>
-			<li>Suppresses frame-to-frame flicker from small connectivity changes.</li>
-			<li>Keeps shading stable by preventing normal flips.</li>
-			<li><strong>α large</strong> → quicker response, less smoothing. <strong>α small</strong> → steadier normals, slower response.</li>
-			</ul>	
-
-			<h4>Step 6: Pack Vertex Data</h4>
-
-			<p>Goal: build a flat float array the GPU can read directly, interleaving position and normal per emitted vertex.</p>
-
-			<ul>
-			<li>Per-vertex record: <code>[Px, Py, Pz, Nx, Ny, Nz]</code></li>
-			<li>6 floats per vertex = 24 bytes (float32)</li>
-			<li>Vertex attribs:
-				<ul>
-				<li>location 0: position (3 floats), offset 0</li>
-				<li>location 1: normal   (3 floats), offset 12 bytes</li>
-				<li>stride: <code>6 * sizeof(float)</code></li>
-				</ul>
-			</li>
-			</ul>
-
-			<ol>
-			<li>For each triangle <code>(a,b,c)</code> in <code>fluidTris</code>:
-				<ul>
-				<li>Emit vertex <code>a</code>: push <code>P[a]</code> then <code>N[a]</code></li>
-				<li>Emit vertex <code>b</code>: push <code>P[b]</code> then <code>N[b]</code></li>
-				<li>Emit vertex <code>c</code>: push <code>P[c]</code> then <code>N[c]</code></li>
-				</ul>
-			</li>
-			<li>Compute <code>trisVertexCount = interleaved.size() / 6</code></li>
-			</ol>
-
-			<pre>
-			// inputs: P (vec3[]), N (vec3[]), T (ivec3[])
-			// output: interleaved (float[])
-			interleaved.clear()
-			for (a,b,c) in T:
-			for idx in [a,b,c]:
-				interleaved.push_back(P[idx].x)
-				interleaved.push_back(P[idx].y)
-				interleaved.push_back(P[idx].z)
-				interleaved.push_back(N[idx].x)
-				interleaved.push_back(N[idx].y)
-				interleaved.push_back(N[idx].z)
-
-			trisVertexCount = interleaved.size() / 6
-			</pre>
-
-			<h1>Step 7: Stream Vertex Data to the GPU</h1>
-
-			<p>Stream the interleaved array <code>[Px,Py,Pz,Nx,Ny,Nz]</code> into a VBO without recreating buffers each frame.</p>
-
-			<h2>Inputs</h2>
-			<ul>
-			<li><code>interleaved</code>: flat <code>float[]</code> built in Step&nbsp;6</li>
-			<li><code>trisVAO</code>: VAO with attribute layout set (pos @ loc&nbsp;0, nor @ loc&nbsp;1)</li>
-			<li><code>trisVBO</code>: GL_ARRAY_BUFFER target</li>
-			<li><code>trisBytes</code>: current capacity (bytes) already allocated in the VBO</li>
-			</ul>
-
-			<h2>Process</h2>
-			<ol>
-			<li><strong>Bind</strong><br>
-			<pre>glBindVertexArray(trisVAO);
-			glBindBuffer(GL_ARRAY_BUFFER, trisVBO);</pre>
-			</li>
-
-			<li><strong>Compute payload size</strong><br>
-			<pre>size_t bytes = interleaved.size() * sizeof(float);</pre>
-			</li>
-
-			<li><strong>Grow only when needed</strong><br>
-			<pre>if (bytes > trisBytes) {
-			glBufferData(GL_ARRAY_BUFFER, bytes, nullptr, GL_STREAM_DRAW);
-			trisBytes = bytes;
-			}</pre>
-			</li>
-
-			<li><strong>Upload this frame’s data</strong><br>
-			<pre>glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, interleaved.data());</pre>
-			</li>
-
-			<li><strong>Unbind VAO</strong><br>
-			<pre>glBindVertexArray(0);</pre>
-			</li>
-			</ol>
-
-			<h2>Pseudocode</h2>
-			<pre>
-			// assume VAO already set up with:
-			// glVertexAttribPointer(0,3,GL_FLOAT,false,6*sizeof(float),(void*)0);
-			// glVertexAttribPointer(1,3,GL_FLOAT,false,6*sizeof(float),(void*)(3*sizeof(float)));
-
-			glBindVertexArray(trisVAO);
-			glBindBuffer(GL_ARRAY_BUFFER, trisVBO);
-
-			size_t bytes = interleaved.size() * sizeof(float);
-			if (bytes > trisBytes) {
-			glBufferData(GL_ARRAY_BUFFER, bytes, nullptr, GL_STREAM_DRAW); // allocate/resize
-			trisBytes = bytes;
-			}
-
-			glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, interleaved.data());   // overwrite contents
-			glBindVertexArray(0);
-			</pre>
-
-			<h3>Shading</h3>
-			This vertex shader transforms each vertex of the mesh into clip space and prepares its surface normal for lighting in the fragment stage.
+			<h3>Meshing and Shaders</h3>
 			<h3>Problems Encountered</h3>
+			<ol>
+				<li><b>Magic Numbers: </b>A large source of difficulty we ran into while developing the physics in our particle system was properly choosing coefficients (ex. the force of gravity, multiplicative constants) that maintained a level of realism/plausibility in our simulation without totally breaking things. Minute changes in particular values could cause particles to clip outside of the bounding box, ignore collisions, or even disappear entirely. Lots of time went into balancing various contants used throughout our code to ensure the stability of our simulation. </li>
+				<li><b>Large-scale Simulations: </b>When simulating a large number of particles (>5000), performance drops off pretty significantly. As a result, our program defaults to 512 particles, although the user can add as many as they please by scrolling their mouse wheel upwards. A major source of this slowdown is collision handling. If we had a bit more time to extend the capabilities of our simulator adding some sort of space partitioning data structure like an octree or BVH would have been beneficial.</li>
+			</ol>
 			<h3>Lessons Learned</h3>
+			<ol>
+				<li><b>An Approximate Solution Is Better Than An Incomplete One:</b> At the outset, we intended to integrate a Navier-Stokes solver as our physics model. As we developed the particle system along with particle-box intersections, it became clear implementing the model we researched would require a substantial overhaul of our existing code. Due to the accelerated timeline of the summer semester in combination with the due date of Homework 3 and our final exam, we simply did not have the time to rework our codebase to include the solver. Unfortunately, this means our simulation does not have a high degree of physical accuracy. Despite that, choosing to move away from an extremely realistic physics model allowed us to spend more time creating a complete experience for the user by giving us time to develop more ways to interact with the simulation in addition to creating more immersive shaders.</li>
+			</ol>
 			<h2>Results</h2>
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+					<tr>
+						<td style="text-align: center;">
+							<img src="thousand.gif" width="400px" />
+							<figcaption>1000-particle simulation</figcaption>
+						</td>
+						<td style="text-align: center;">
+							<img src="add-sub.gif" width="400px" />
+							<figcaption>Adding and removing particles from the simulation</figcaption>
+						</td>
+					</tr>
+					<tr>
+						<td style="text-align: center;">
+							<img src="resize.gif" width="400px" />
+							<figcaption>Demonstration of dynamic resizing</figcaption>
+						</td>
+						<td style="text-align: center;">
 
+						</td>
+					</tr>
+				</table>
+			</div>
 			<h2>References</h2>
 			<ol>
 				<li><a href="https://www.youtube.com/watch?v=rSKMYc1CQHE">Coding Adventure: Simulating Fluids</a></li>
+				<li><a href="https://en.wikipedia.org/wiki/Elastic_collision">Elastic Collision</a></li>
+				<li><a href="https://cs184.eecs.berkeley.edu/sp25/resources/cgl-vector-docs/">CGL Vectors Library</a></li>
 			</ol>
 			<h2>Contributions</h2>
 			<p><b>Mark MacDermott:</b> </p>
-			<p><b>Alexander Waldman:</b> </p>
+			<p><b>Alexander Waldman:</b> Researched/found starter code, set up the bounding box, implemented core classes, developed much of the particle system, contributed to final writeup and slides</p>
 			<p><b>Yuanbo Jiang:</b> </p>
-			<p><b>Seongsoo Park:</b> </p>
+			<p><b>Seongsoo Park:</b> Implemented some code such as particle-particle collision and bounding box sizing, and also contributed to some parts of the slides.</p>
 		</div>
 	</body>
 </html>
