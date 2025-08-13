@@ -40,7 +40,6 @@
 				<li>5] Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
 				<li>6] Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
 				<li>7] Send to GPU: The vertex buffer object is resized only when necessary. Most frames use glBufferSubData to overwrite existing storage, reducing allocation overhead and avoiding driver-side churn.</li>
-				<li>8] Draw: With the mesh mode active, the vertex array is drawn as triangles with backface culling disabled, depth testing enabled, and alpha blending for translucency. In particle mode, raw particle positions are streamed to a separate buffer and drawn as GL_POINTS for diagnostic visualization.</li>
 				</ul> 
 			To this end we also declare the following datastructures:
 			<div class="card">
@@ -403,11 +402,11 @@
 			trisVertexCount = interleaved.size() / 6
 			</pre>
 
-			<h1>Step 7: Stream Vertex Data to the GPU</h1>
+			<h4>Step 7: Stream Vertex Data to the GPU</h4>
 
 			<p>Stream the interleaved array <code>[Px,Py,Pz,Nx,Ny,Nz]</code> into a VBO without recreating buffers each frame.</p>
 
-			<h2>Inputs</h2>
+			Inputs
 			<ul>
 			<li><code>interleaved</code>: flat <code>float[]</code> built in Step&nbsp;6</li>
 			<li><code>trisVAO</code>: VAO with attribute layout set (pos @ loc&nbsp;0, nor @ loc&nbsp;1)</li>
@@ -415,7 +414,7 @@
 			<li><code>trisBytes</code>: current capacity (bytes) already allocated in the VBO</li>
 			</ul>
 
-			<h2>Process</h2>
+			Process
 			<ol>
 			<li><strong>Bind</strong><br>
 			<pre>glBindVertexArray(trisVAO);</pre>
@@ -442,7 +441,7 @@
 			</li>
 			</ol>
 
-			<h2>Pseudocode</h2>
+			Pseudocode
 			<pre>
 			// assume VAO already set up with:
 			// glVertexAttribPointer(0,3,GL_FLOAT,false,6*sizeof(float),(void*)0);
@@ -460,6 +459,107 @@
 			glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, interleaved.data());   // overwrite contents
 			glBindVertexArray(0);
 			</pre>
+
+			<h3>Shaders</h3>
+			Two main shaders are applied to the generated mesh, VS_tris and FS_tris.
+
+
+			<pre><code>
+			GLuint vs = compile(GL_VERTEX_SHADER, VS_tris);
+			GLuint fs = compile(GL_FRAGMENT_SHADER, FS_tris);
+			progTris = link(vs, fs);
+			glDeleteShader(vs); glDeleteShader(fs);
+			uRot_tris = glGetUniformLocation(progTris, "uRot");
+			</code></pre>
+
+			<p><strong>VS_tris purpose:</strong> This vertex shader transforms each vertex of the mesh into clip space and prepares its surface normal for lighting in the fragment stage.</p>
+
+			<ul>
+			<li><strong>layout(location=0) in vec3 aPos:</strong> Per-vertex position in object/local space, loaded from the VBO.</li>
+			<li><strong>layout(location=1) in vec3 aNor:</strong> Per-vertex normal vector in object/local space, loaded from the VBO.</li>
+			<li><strong>uniform mat4 uRot:</strong> 4×4 rotation matrix uploaded each frame to apply global mesh rotation.</li>
+			<li><strong>out vec3 vN:</strong> Rotated vertex normal, output to the fragment shader.</li>
+			</ul>
+
+			Steps
+			<ol>
+			<li><strong>Transform vertex position to clip space:</strong>
+				<code>gl_Position = uRot * vec4(aPos, 1.0);</code>
+				Converts local position to homogeneous coordinates, applies rotation, and outputs to <code>gl_Position</code> for projection.</li>
+			<li><strong>Transform normal vector:</strong>
+				<code>vN = mat3(uRot) * aNor;</code>
+				Uses only the rotation part of <code>uRot</code> to transform normals so lighting directions remain correct.</li>
+			</ol>
+
+			Intuitive Explaination
+			<p>If you rotate a mesh, both its points and the directions they face (normals) must rotate together to keep lighting accurate. This shader rotates vertex positions for rendering and rotates their normals for correct lighting, sending both forward in the pipeline.</p>
+
+			<pre><code>
+			static const char* VS_tris = R"(
+			#version 330 core
+			layout (location=0) in vec3 aPos;
+			layout (location=1) in vec3 aNor;
+			uniform mat4 uRot;
+			out vec3 vN;
+			void main() {
+				gl_Position = uRot * vec4(aPos, 1.0);
+				vN = mat3(uRot) * aNor; // rotate normal only
+			}
+			)";
+			</code></pre>
+
+			<p><strong>FS_tris purpose:</strong>
+			<p>Shade the fluid mesh per-fragment using Lambert diffuse plus a constant emissive term; output with fixed translucency (alpha = 0.60).</p>
+
+			Input/Output
+			<ul>
+			<li><strong>in vec3 vN</strong>: interpolated normal from the vertex shader.</li>
+			<li><strong>out vec4 FragColor</strong>: final RGBA color.</li>
+			</ul>
+
+			Shader Variables
+			<ul>
+			<li><strong>Light direction</strong>: <code>L = normalize(vec3(0.45, 0.75, 0.5))</code></li>
+			<li><strong>Base color</strong>: <code>base = vec3(0.2, 0.6, 1.0)</code></li>
+			<li><strong>Alpha</strong>: <code>0.60</code></li>
+			<li><strong>Diffuse/ambient mix</strong>: <code>0.25 + 1.2 * lambert</code></li>
+			<li><strong>Emissive</strong>: <code>0.84 * base</code></li>
+			</ul>
+
+			Code
+			<pre>#version 330 core
+			in vec3 vN;
+			out vec4 FragColor;
+			void main() {
+				vec3 N = normalize(vN);
+				vec3 L = normalize(vec3(0.45, 0.75, 0.5));
+				float lambert = max(dot(N, L), 0.0);
+
+				vec3 base = vec3(0.2, 0.6, 1.0);
+
+				vec3 shaded   = base * (0.25 + 1.2 * lambert);
+				vec3 emissive = base * 0.84;
+
+				vec3 col = shaded + emissive;
+				FragColor = vec4(col, 0.60);
+			}</pre>
+
+			List of Steps
+			<ol>
+			<li><strong>Normalize normal</strong>: <code>N = normalize(vN)</code> ensures unit length after interpolation.</li>
+			<li><strong>Lambert diffuse</strong>: <code>lambert = max(dot(N, L), 0)</code> brightens surfaces facing the light.</li>
+			<li><strong>Ambient + diffuse</strong>: <code>shaded = base * (0.25 + 1.2 * lambert)</code> keeps unlit areas visible.</li>
+			<li><strong>Emissive fill</strong>: <code>emissive = base * 0.84</code> adds constant glow for readability.</li>
+			<li><strong>Compose</strong>: <code>col = shaded + emissive</code>, then output <code>FragColor = vec4(col, 0.60)</code>.</li>
+			</ol>
+
+			Intuition
+			<ul>
+			<li>Diffuse responds to orientation relative to the light.</li>
+			<li>Ambient and emissive prevent the thin, translucent sheet from going dark.</li>
+			<li>Fixed alpha controls transparency; blending and depth-write settings are handled in the draw state.</li>
+			</ul>
+
 
 		</div>
 	</body>

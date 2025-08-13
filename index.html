@@ -52,6 +52,19 @@
 			<h2>Technical Approach</h2>
 			<h3>Particle System</h3>
 			<h3>Meshing and Shaders</h3>
+						After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
+			The basic steps of mesh generation are listed below in order:
+
+				<ul>
+				<li>1] Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
+				<li>2] k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
+				<li>3] Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
+				<li>4] Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
+				<li>5] Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
+				<li>6] Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
+				<li>7] Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
+				</ul> 
+
 			<h3>Problems Encountered</h3>
 			<ol>
 				<li><b>Magic Numbers: </b>A large source of difficulty we ran into while developing the physics in our particle system was properly choosing coefficients (ex. the force of gravity, multiplicative constants) that maintained a level of realism/plausibility in our simulation without totally breaking things. Minute changes in particular values could cause particles to clip outside of the bounding box, ignore collisions, or even disappear entirely. Lots of time went into balancing various contants used throughout our code to ensure the stability of our simulation. </li>
@@ -92,7 +105,7 @@
 				<li><a href="https://cs184.eecs.berkeley.edu/sp25/resources/cgl-vector-docs/">CGL Vectors Library</a></li>
 			</ol>
 			<h2>Contributions</h2>
-			<p><b>Mark MacDermott:</b> </p>
+			<p><b>Mark MacDermott:</b> Implemented mesh generation and shading from particle data provided by physics simulation</p>
 			<p><b>Alexander Waldman:</b> Researched/found starter code, set up the bounding box, implemented core classes, developed much of the particle system, contributed to final writeup and slides</p>
 			<p><b>Yuanbo Jiang:</b> </p>
 			<p><b>Seongsoo Park:</b> Implemented some code such as particle-particle collision and bounding box sizing, and also contributed to some parts of the slides.</p>
