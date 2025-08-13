@@ -79,7 +79,7 @@
 			<h3>Problems Encountered</h3>
 			<ol>
 				<li><b>Magic Numbers: </b>A large source of difficulty we ran into while developing the physics in our particle system was properly choosing coefficients (ex. the force of gravity, multiplicative constants) that maintained a level of realism/plausibility in our simulation without totally breaking things. Minute changes in particular values could cause particles to clip outside of the bounding box, ignore collisions, or even disappear entirely. Lots of time went into balancing various contants used throughout our code to ensure the stability of our simulation. </li>
-				<li><b>Large-scale Simulations: </b>When simulating a large number of particles (>5000), performance drops off pretty significantly. As a result, our program defaults to 512 particles, although the user can add as many as they please by scrolling their mouse wheel upwards. A major source of this slowdown is collision handling. If we had a bit more time to extend the capabilities of our simulator adding some sort of space partitioning data structure like an octree or BVH would have been beneficial.</li>
+				<li><b>Large-scale Simulations: </b>When simulating a large number of particles (>1000), performance drops off pretty significantly. As a result, our program defaults to 512 particles, although the user can add as many as they please by scrolling their mouse wheel upwards. A major source of this slowdown is collision handling. If we had a bit more time to extend the capabilities of our simulator adding some sort of space partitioning data structure like an octree or BVH would have been beneficial.</li>
 			</ol>
 			<h3>Lessons Learned</h3>
 			<ol>
