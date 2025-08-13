@@ -27,24 +27,7 @@
 	</head>
 	<body>
 		<div class="container">
-			<h1>CS184 Summer 2025 Final Project</h1>
-			<div style="text-align: center;"><h2><i>Waterbender: A Real-Time Interactive Fluid Simulation</i></h2></div>
-			<div style="text-align: center;">Names: Alexander Waldman, Mark MacDermott, Yuanbo Jiang, Seongsoo Park </div>
-
-			<br>
-
-			Link to webpage: <a href="https://awaldman0.github.io/waterbender_final_report/">awaldman0.github.io/waterbender_final_report/</a>
-			<br />
-			Link to GitHub repo: <a href="https://github.com/awaldman0/waterbender">github.com/awaldman0/waterbender</a>
-			<br>
-			<!--
-	We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
-	-->
-
-			<h2>Abstract</h2>
-			<p>This project explores real-time particle-based fluid simulation and rendering in 3D. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. From there, </p>
-			<h2>Technical Approach</h2>
-			<h3>Particle System</h3>
+			
 			<h3>Meshing</h3>
 			After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
 			The basic steps of mesh generation are listed below in order:
@@ -435,8 +418,8 @@
 			<h2>Process</h2>
 			<ol>
 			<li><strong>Bind</strong><br>
-			<pre>glBindVertexArray(trisVAO);
-			glBindBuffer(GL_ARRAY_BUFFER, trisVBO);</pre>
+			<pre>glBindVertexArray(trisVAO);</pre>
+			<pre>glBindBuffer(GL_ARRAY_BUFFER, trisVBO);</pre>
 			</li>
 
 			<li><strong>Compute payload size</strong><br>
@@ -478,21 +461,6 @@
 			glBindVertexArray(0);
 			</pre>
 
-			<h3>Shading</h3>
-			This vertex shader transforms each vertex of the mesh into clip space and prepares its surface normal for lighting in the fragment stage.
-			<h3>Problems Encountered</h3>
-			<h3>Lessons Learned</h3>
-			<h2>Results</h2>
-
-			<h2>References</h2>
-			<ol>
-				<li><a href="https://www.youtube.com/watch?v=rSKMYc1CQHE">Coding Adventure: Simulating Fluids</a></li>
-			</ol>
-			<h2>Contributions</h2>
-			<p><b>Mark MacDermott:</b> </p>
-			<p><b>Alexander Waldman:</b> </p>
-			<p><b>Yuanbo Jiang:</b> </p>
-			<p><b>Seongsoo Park:</b> </p>
 		</div>
 	</body>
 </html>
