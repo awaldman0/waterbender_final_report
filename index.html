@@ -9,7 +9,7 @@
 
 			.container {
 				margin: 0 auto;
-				padding: 45px 20%;
+				padding: 60px 10%;
 			}
 
 			figure {
@@ -37,6 +37,8 @@
 			<br />
 			Link to GitHub repo: <a href="https://github.com/awaldman0/waterbender">github.com/awaldman0/waterbender</a>
 			<br>
+			<a href="https://docs.google.com/presentation/d/1Egt6PA-J0QTN7RdHVlVrm-zUfxWP1CrhYYB1NdwbgcY/edit?slide=id.g374755c154a_0_119#slide=id.g374755c154a_0_119">Link to slides</a>
+			<br />
 			<!--
 	We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
 	-->
@@ -45,7 +47,7 @@
 			<p>This project explores real-time particle-based fluid simulation and rendering in 3D based in OpenGL. Starting from a barebones template project that could render a square to the screen (using GLFW for window management and GLM for math operations), we extended the square into a cube that would house our fluid simulation. From there, we developed a particle system and implemented physical interactions that approximate the behavior of a fluid when a large number of particles are on screen. Next, we transitioned from displaying particle data as distinct points to combining them into a contiguous mesh using the k-Nearest Neighbor method. To enhance the realism of our fluid, we used area weighted vertex normals from the mesh in combination with a bloom shader and multiple passes of a gaussian blur shader (all written in GLSL), finally compositing the layers together in the framebuffer. The final version of our program can be rendered in two modes; the first displays our fluid using the fully shaded mesh, while the second shows the all of the particles that underpin the simulation. The user can switch between display modes by pressing 'P'. Waterbender has a number of other ways for the user interact with the simultion, including being able to use their mouse and/or arrow keys to rotate the cube over the x and y axes while 'R' can be pressed to reset the simulation's orientation. The user can scroll up and down to add or subtract particles from the simulation, respectively. Lastly, the user can dynamically resize the container by pressing Q, W, and E to expand along each axis and A, S, and D to contract.</p>
 			<p><b>If you are viewing this as a PDF, please visit the website to see animated GIFs.</b></p>
 			<div style="text-align: center;">
-				<img src="intro.gif" width="400px" />
+				<img src="intro.gif" width="600px" />
 			</div>
 			<h2>Technical Approach</h2>
 			<h3>Particle System</h3>
