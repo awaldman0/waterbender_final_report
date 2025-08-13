@@ -84,6 +84,8 @@
 			<h3>Lessons Learned</h3>
 			<ol>
 				<li><b>An Approximate Solution Is Better Than An Incomplete One:</b> At the outset, we intended to integrate a Navier-Stokes solver as our physics model. As we developed the particle system along with particle-box intersections, it became clear implementing the model we researched would require a substantial overhaul of our existing code. Due to the accelerated timeline of the summer semester in combination with the due date of Homework 3 and our final exam, we simply did not have the time to rework our codebase to include the solver. Unfortunately, this means our simulation does not have a high degree of physical accuracy. Despite that, choosing to move away from an extremely realistic physics model allowed us to spend more time creating a complete experience for the user by giving us time to develop more ways to interact with the simulation in addition to creating more immersive shaders.</li>
+				<li><b>Working with OpenGL:</b> This was our first time directly using OpenGL and it presented us with many challenges. Rendering data to the screen is a much more involved process (especially in modern OpenGL) than we initially anticipated. Learning how to work with VAOs and VBAs was definetly a confusing process and slowed our progress a bit, but we came out the other side with a firm understanding of how to use this industry-standard library. </li>
+
 			</ol>
 			<h2>Results</h2>
 			<div style="display: flex; flex-direction: column; align-items: center;">
