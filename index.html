@@ -32,16 +32,15 @@
 			<div style="text-align: center;">Names: Alexander Waldman, Mark MacDermott, Yuanbo Jiang, Seongsoo Park </div>
 
 			<br>
-
 			Link to webpage: <a href="https://awaldman0.github.io/waterbender_final_report/">awaldman0.github.io/waterbender_final_report/</a>
-			<br />
+			<br/>
 			Link to GitHub repo: <a href="https://github.com/awaldman0/waterbender">github.com/awaldman0/waterbender</a>
 			<br>
-			<a href="https://docs.google.com/presentation/d/1Egt6PA-J0QTN7RdHVlVrm-zUfxWP1CrhYYB1NdwbgcY/edit?slide=id.g374755c154a_0_119#slide=id.g374755c154a_0_119">Slides</a>
-			<br />
-			<a href="https://docs.google.com/presentation/d/1Egt6PA-J0QTN7RdHVlVrm-zUfxWP1CrhYYB1NdwbgcY/edit?slide=id.g374755c154a_0_119#slide=id.g374755c154a_0_119">Video</a>
-
-			<br />
+			<a href="https://docs.google.com/presentation/d/1Egt6PA-J0QTN7RdHVlVrm-zUfxWP1CrhYYB1NdwbgcY/edit?slide=id.g374755c154a_0_119#slide=id.g374755c154a_0_119">Link to slides</a>
+			<br/>
+			<br>
+			Link to video: <a href="https://drive.google.com/file/d/1bsIomYWcrM4S_-lmLpv0OC55-YuT61bi/view?usp=sharing">Video</a>
+			<br/>
 			<!--
 	We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
 	-->
@@ -75,20 +74,18 @@
 				<li> Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
 			</ol>
 			<div style="text-align: center;">
-				<img src="mesh2.gif" width="400px" />
+				<img src="mesh.gif" width="400px" />
 				<figcaption>Result of kNN meshing algorithm</figcaption>
 			</div>
 
 			<h3>Problems Encountered</h3>
 			<ol>
 				<li><b>Magic Numbers: </b>A large source of difficulty we ran into while developing the physics in our particle system was properly choosing coefficients (ex. the force of gravity, multiplicative constants) that maintained a level of realism/plausibility in our simulation without totally breaking things. Minute changes in particular values could cause particles to clip outside of the bounding box, ignore collisions, or even disappear entirely. Lots of time went into balancing various contants used throughout our code to ensure the stability of our simulation. </li>
-				<li><b>Large-scale Simulations: </b>When simulating a large number of particles (>1000), performance drops off pretty significantly. As a result, our program defaults to 512 particles, although the user can add as many as they please by scrolling their mouse wheel upwards. A major source of this slowdown is collision handling. If we had a bit more time to extend the capabilities of our simulator adding some sort of space partitioning data structure like an octree or BVH would have been beneficial.</li>
+				<li><b>Large-scale Simulations: </b>When simulating a large number of particles (>5000), performance drops off pretty significantly. As a result, our program defaults to 512 particles, although the user can add as many as they please by scrolling their mouse wheel upwards. A major source of this slowdown is collision handling. If we had a bit more time to extend the capabilities of our simulator adding some sort of space partitioning data structure like an octree or BVH would have been beneficial.</li>
 			</ol>
 			<h3>Lessons Learned</h3>
 			<ol>
 				<li><b>An Approximate Solution Is Better Than An Incomplete One:</b> At the outset, we intended to integrate a Navier-Stokes solver as our physics model. As we developed the particle system along with particle-box intersections, it became clear implementing the model we researched would require a substantial overhaul of our existing code. Due to the accelerated timeline of the summer semester in combination with the due date of Homework 3 and our final exam, we simply did not have the time to rework our codebase to include the solver. Unfortunately, this means our simulation does not have a high degree of physical accuracy. Despite that, choosing to move away from an extremely realistic physics model allowed us to spend more time creating a complete experience for the user by giving us time to develop more ways to interact with the simulation in addition to creating more immersive shaders.</li>
-				<li><b>Working with OpenGL:</b> This was our first time directly using OpenGL and it presented us with many challenges. Rendering data to the screen is a much more involved process (especially in modern OpenGL) than we initially anticipated. Learning how to work with VAOs and VBAs was definetly a confusing process and slowed our progress a bit, but we came out the other side with a firm understanding of how to use this industry-standard library. </li>
-
 			</ol>
 			<h2>Results</h2>
 			<div style="display: flex; flex-direction: column; align-items: center;">
@@ -124,9 +121,9 @@
 				<li><a href="https://www.khronos.org/opengl/wiki/Tutorial2:_VAOs,_VBOs,_Vertex_and_Fragment_Shaders_(C_/_SDL)">VAO, VBO, Vertex and Fragment Shaders</a></li>
 			</ol>
 			<h2>Contributions</h2>
-			<p><b>Mark MacDermott:</b> Implemented mesh generation and shading from particle data provided by physics simulation.</p>
-			<p><b>Alexander Waldman:</b> Researched/found starter code, set up the bounding box, implemented core classes, developed much of the particle system, contributed to final writeup and slides.</p>
-			<p><b>Yuanbo Jiang:</b> Implemented control features to add or remove particles, enabled mouse-based interaction that allows rapid mmodifications to the container, and researched real-time interactive fluid simulation approaches.</p>
+			<p><b>Mark MacDermott:</b> Implemented mesh generation and shading from particle data provided by physics simulation</p>
+			<p><b>Alexander Waldman:</b> Researched/found starter code, set up the bounding box, implemented core classes, developed much of the particle system, contributed to final writeup and slides</p>
+			<p><b>Yuanbo Jiang:</b> Implemented UI elements such as adding/removing new particles </p>
 			<p><b>Seongsoo Park:</b> Implemented some code such as particle-particle collision and bounding box sizing, and also contributed to some parts of the slides.</p>
 		</div>
 	</body>
