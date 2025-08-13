@@ -62,15 +62,15 @@
 			After solving for each particle position at a new timestep based on the physics implemented in the Particle System, we must generate a mesh of triangles to be rendered and shaded.
 			The basic steps of mesh generation are listed below in order:
 
-			<ul>
-				<li>1] Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
-				<li>2] k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
-				<li>3] Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
-				<li>4] Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
-				<li>5] Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
-				<li>6] Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
-				<li>7] Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
-			</ul>
+			<ol>
+				<li> Smooth Positions: Raw particle positions from the simulation are noisy due to collisions and rapid motion. Before meshing, each stored position is updated via an exponential moving average toward the actual particle position. This attenuates high-frequency jitter and produces a temporally stable surface.</li>
+				<li> k Nearest Neighbors: For each vertex candidate, distances to all others are measured and those beyond a fixed radius are discarded. From the remainder, only a limited number of the closest are retained. This constrains connectivity to local regions and limits computational cost.</li>
+				<li> Triangle Formation: Triplets are formed by taking the central vertex and all unique unordered neighbor pairs that are also mutually close. Indices are canonicalized and hashed to guarantee each triangle appears only once.</li>
+				<li> Compute Normals: For each triangle, the cross product of two edge vectors yields an unnormalized face normal proportional to the triangle’s area. These are summed into the normals of their constituent vertices, then normalized to unit length, producing smooth, area-weighted vertex normals.</li>
+				<li> Smooth Normals: To suppress frame-to-frame shading noise from topology changes, normals are updated via an EMA blending current and previous values. A dot product test against a reference light direction enforces consistent hemisphere orientation by flipping inverted normals.</li>
+				<li> Pack vertex data: The final per-vertex positions and normals are written in an interleaved format—position components followed by normal components—matching the GPU shader’s attribute layout. This avoids indexed rendering and enables direct sequential fetch by the vertex shader.</li>
+				<li> Send to GPU: Bind the mesh’s VAO and its vertex buffer, then uploads the current interleaved vertex data (positions + normals) to the GPU. If the new data is larger than the buffer’s current capacity, it reallocates the buffer with glBufferData; otherwise it just overwrites existing storage with glBufferSubData. Finally, it unbinds the VAO.</li>
+			</ol>
 
 			<h3>Problems Encountered</h3>
 			<ol>
